@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.37301.10 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "XeroDemo", "XeroDemo.csproj", "{C0825F38-64F2-459F-968F-E9193C4BEEB6}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C0825F38-64F2-459F-968F-E9193C4BEEB6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C0825F38-64F2-459F-968F-E9193C4BEEB6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C0825F38-64F2-459F-968F-E9193C4BEEB6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C0825F38-64F2-459F-968F-E9193C4BEEB6}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {7EC5AA36-6A93-4476-A581-C18C3E4F1E80}
+	EndGlobalSection
+EndGlobal
