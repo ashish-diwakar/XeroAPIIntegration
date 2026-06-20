@@ -1,22 +1,22 @@
 ﻿@page
 @model XeroDemo.Pages.Xero.AddInvoiceModel
 @{
-    ViewData["Title"] = "Xero Organization Invoice Builder";
+    ViewData["Title"] = "Xero Contact Invoice Builder";
 }
 
 <div class="container mt-5">
     <div class="row justify-content-center">
         <div class="col-md-6">
             <div class="card shadow-sm p-4">
-                <h2 class="text-center mb-4 text-primary">Xero Multi-Tenant Manager</h2>
+                <h2 class="text-center mb-4 text-primary">Xero Contact Manager</h2>
 
-                <!-- PHASE 1: Fetch button shows when no organization choices have been loaded yet -->
-                @if (Model.XeroTenantsList.Count == 0 && string.IsNullOrEmpty(Model.SelectedTenantId))
+                <!-- PHASE 1: Fetch button shows when no contacts choices have been loaded yet -->
+                @if (Model.XeroContactsList.Count == 0 && string.IsNullOrEmpty(Model.SelectedContactId))
                 {
                     <div class="text-center border p-4 rounded bg-light">
-                        <p class="text-muted">Connect your session to fetch active organization business spaces.</p>
-                        <form method="post" asp-page-handler="FetchTenant">
-                            <button type="submit" class="btn btn-success btn-lg w-100">🔌 Fetch Connected Organizations</button>
+                        <p class="text-muted">Connect your session to fetch active contacts from API.</p>
+                        <form method="post" asp-page-handler="FetchContact">
+                            <button type="submit" class="btn btn-success btn-lg w-100">🔌 Fetch Contacts List</button>
                         </form>
                     </div>
                 }
@@ -25,31 +25,25 @@
                     <!-- PHASE 2: Renders dynamic drop down selection menu and contact text box -->
                     <form method="post" asp-page-handler="CreateInvoice">
 
-                        <!-- Dynamic Organization Dropdown -->
+                        <!-- Dynamic Contact Dropdown -->
                         <div class="mb-3">
-                            <label asp-for="SelectedTenantId" class="form-label fw-bold"></label>
-                            <select asp-for="SelectedTenantId" asp-items="Model.XeroTenantsList" class="form-select form-select-lg">
-                                <option value="">-- Choose Xero Business Organization --</option>
+                            <label asp-for="SelectedContactId" class="form-label fw-bold"></label>
+                            <select asp-for="SelectedContactId" asp-items="Model.XeroContactsList" class="form-select form-select-lg">
+                                <option value="">-- Choose Xero Business Contact --</option>
                             </select>
-                            <span asp-validation-for="SelectedTenantId" class="text-danger small d-block mt-1"></span>
+                            <span asp-validation-for="SelectedContactId" class="text-danger small d-block mt-1"></span>
                         </div>
 
-                        <!-- Contact ID Field -->
-                        <div class="mb-3">
-                            <label asp-for="ContactId" class="form-label fw-bold"></label>
-                            <input asp-for="ContactId" class="form-control form-control-lg" placeholder="e.g., 1a2b3c4d-5e6f-7a8b-9c0d-1e2f3a4b5c6d" />
-                            <span asp-validation-for="ContactId" class="text-danger small d-block mt-1"></span>
-                        </div>
 
                         <!-- Retain items list inside hidden input formats across submission actions -->
-                        @for (int i = 0; i < Model.XeroTenantsList.Count; i++)
+                        @for (int i = 0; i < Model.XeroContactsList.Count; i++)
                         {
-                            <input type="hidden" name="XeroTenantsList[@i].Value" value="@Model.XeroTenantsList[i].Value" />
-                            <input type="hidden" name="XeroTenantsList[@i].Text" value="@Model.XeroTenantsList[i].Text" />
+                            <input type="hidden" name="XeroContactsList[@i].Value" value="@Model.XeroContactsList[i].Value" />
+                            <input type="hidden" name="XeroContactsList[@i].Text" value="@Model.XeroContactsList[i].Text" />
                         }
 
                         <div class="d-grid mt-4">
-                            <button type="submit" class="btn btn-primary btn-lg">📄 Create Invoice for Selection</button>
+                            <button type="submit" class="btn btn-primary btn-lg">📄 Create Demo Invoice for Selection</button>
                         </div>
                     </form>
                 }

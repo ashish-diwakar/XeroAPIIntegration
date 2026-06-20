@@ -1,131 +1,100 @@
-﻿using System.Net.Http.Headers;
+﻿using Microsoft.Extensions.Options;
+using System.Net.Http.Headers;
+using System.Runtime;
 using System.Text;
 using System.Text.Json;
+using XeroDemo.Interfaces;
 using XeroDemo.Models;
 
 namespace XeroDemo.Services
 {
-    public class XeroInvoiceService
+    public class XeroInvoiceService : IXeroInvoiceService
     {
         private readonly HttpClient _httpClient;
-        private readonly IConfiguration _configuration;
+        private readonly XeroConfigurationDto _settings;
+        private readonly IXeroTokenService _tokenService;
         private readonly ILogger<XeroInvoiceService> _logger;
 
-        public XeroInvoiceService(HttpClient httpClient, IConfiguration configuration, ILogger<XeroInvoiceService> logger)
+        public XeroInvoiceService(
+         HttpClient httpClient,
+         IOptions<XeroConfigurationDto> settings,
+         IXeroTokenService tokenService,
+         ILogger<XeroInvoiceService> logger)
         {
             _httpClient = httpClient;
-            _configuration = configuration;
+            _settings = settings.Value;
+            _tokenService = tokenService;
             _logger = logger;
         }
 
         /// <summary>
-        /// Helper method to fetch the active OAuth2 token from Xero using Client Credentials.
+        /// Creates or updates an invoice in Xero.
+        /// Custom Connections do not require a tenant id.
         /// </summary>
-        private async Task<string?> GetAccessTokenAsync()
+        public async Task<string?> CreateOrUpdateInvoiceAsync(
+            InvoiceDto invoiceData)
         {
-            var clientId = _configuration["XERO:ClientID"];
-            var clientSecret = _configuration["XERO:ClientSecret"];
-
-            var tokenRequest = new HttpRequestMessage(HttpMethod.Post, "https://xero.com");
-
-            var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{clientId}:{clientSecret}"));
-            tokenRequest.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
-
-            tokenRequest.Content = new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                { "grant_type", "client_credentials" },
-                { "scope", "accounting.transactions" }
-            });
-
             try
             {
-                using var response = await _httpClient.SendAsync(tokenRequest);
-                if (!response.IsSuccessStatusCode) return null;
+                var accessToken =
+                    await _tokenService.GetAccessTokenAsync();
 
-                var json = await response.Content.ReadAsStringAsync();
-                var tokenData = JsonSerializer.Deserialize<XeroTokenResponse>(json);
-                return tokenData?.AccessToken;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to fetch Xero access token.");
-                return null;
-            }
-        }
+                if (string.IsNullOrWhiteSpace(accessToken))
+                {
+                    _logger.LogError(
+                        "Could not obtain Xero access token.");
 
-        /// <summary>
-        /// PASTE THE METHOD HERE: Fetches all active Xero organization connections/tenants.
-        /// </summary>
-        public async Task<List<XeroConnectionDto>> GetTenantConnectionsAsync()
-        {
-            var accessToken = await GetAccessTokenAsync();
-            if (string.IsNullOrEmpty(accessToken))
-            {
-                _logger.LogError("Could not fetch access token to check connections.");
-                return new List<XeroConnectionDto>();
-            }
+                    return null;
+                }
 
-            // Call the dedicated Xero connections endpoint
-            var request = new HttpRequestMessage(HttpMethod.Get, "https://xero.com");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
 
-            try
-            {
-                using var response = await _httpClient.SendAsync(request);
+                string url = string.IsNullOrEmpty(_settings.InvoiceServiceEndPoint) ? "https://api.xero.com/api.xro/2.0/Invoices" : _settings.InvoiceServiceEndPoint;
+
+                using var request = new HttpRequestMessage(
+                    HttpMethod.Post,
+                    url);
+
+                request.Headers.Authorization =
+                    new AuthenticationHeaderValue(
+                        "Bearer",
+                        accessToken);
+
+                request.Headers.Accept.ParseAdd(
+                    "application/json");
+
+                request.Content =
+                    new StringContent(
+                        JsonSerializer.Serialize(invoiceData),
+                        Encoding.UTF8,
+                        "application/json");
+
+                using var response =
+                    await _httpClient.SendAsync(request);
+
+                var content =
+                    await response.Content.ReadAsStringAsync();
+
                 if (!response.IsSuccessStatusCode)
                 {
-                    var error = await response.Content.ReadAsStringAsync();
-                    _logger.LogError("Failed fetching Xero tenants: {Error}", error);
-                    return new List<XeroConnectionDto>();
+                    _logger.LogError(
+                        "Xero invoice request failed. Status: {StatusCode}. Response: {Response}",
+                        response.StatusCode,
+                        content);
+
+                    return null;
                 }
 
-                var json = await response.Content.ReadAsStringAsync();
-                return JsonSerializer.Deserialize<List<XeroConnectionDto>>(json) ?? new List<XeroConnectionDto>();
+                _logger.LogInformation(
+                    "Invoice processed successfully.");
+
+                return content;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error occurred while fetching Xero connections.");
-                return new List<XeroConnectionDto>();
-            }
-        }
+                _logger.LogError(
+                    ex,
+                    "Error while sending invoice to Xero.");
 
-        /// <summary>
-        /// Sends the structured invoice payload over to the Xero API.
-        /// </summary>
-        public async Task<string?> CreateOrUpdateInvoiceAsync(InvoiceDto invoiceData, string tenantId)
-        {
-            var accessToken = await GetAccessTokenAsync();
-            if (string.IsNullOrEmpty(accessToken))
-            {
-                _logger.LogError("Aborting invoice creation: Could not retrieve access token.");
-                return null;
-            }
-
-            // Relative URL targets the BaseAddress configured in Program.cs
-            var request = new HttpRequestMessage(HttpMethod.Post, "");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
-            request.Headers.Add("Xero-tenant-id", tenantId);
-
-            var jsonContent = JsonSerializer.Serialize(invoiceData);
-            request.Content = new StringContent(jsonContent, Encoding.UTF8, "application/json");
-
-            try
-            {
-                using var response = await _httpClient.SendAsync(request);
-
-                if (response.IsSuccessStatusCode)
-                {
-                    _logger.LogInformation("Invoice created/updated successfully.");
-                    return await response.Content.ReadAsStringAsync();
-                }
-
-                var errorContent = await response.Content.ReadAsStringAsync();
-                _logger.LogError("Error creating/updating invoice: {ErrorContent}", errorContent);
-                return null;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "An exception occurred while calling the Xero API.");
                 return null;
             }
         }

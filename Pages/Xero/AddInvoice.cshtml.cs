@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using System.ComponentModel.DataAnnotations;
+using XeroDemo.Interfaces;
 using XeroDemo.Models;
 using XeroDemo.Services;
 
@@ -9,27 +10,31 @@ namespace XeroDemo.Pages.Xero
 {
     public class AddInvoiceModel : PageModel
     {
-        private readonly XeroInvoiceService _xeroService;
+        private readonly IXeroInvoiceService _xeroInvoiceService;
+        private readonly IXeroContactService _xeroContactService;
 
-        public AddInvoiceModel(XeroInvoiceService xeroService)
+        public AddInvoiceModel(
+            IXeroInvoiceService xeroInvoiceService,
+            IXeroContactService xeroContactService)
         {
-            _xeroService = xeroService;
+            _xeroInvoiceService = xeroInvoiceService;
+            _xeroContactService = xeroContactService;
         }
 
-        // Stores the currently chosen Tenant ID from the dropdown menu
+        // Stores the currently chosen Contact ID from the dropdown menu
         [BindProperty]
         [Required(ErrorMessage = "Please select a Xero organization from the list.")]
         [Display(Name = "Target Organization")]
-        public string SelectedTenantId { get; set; } = string.Empty;
+        public string SelectedContactId { get; set; } = string.Empty;
 
         // Binds the active dropdown select choices to render on screen
-        public List<SelectListItem> XeroTenantsList { get; set; } = new();
+        public List<SelectListItem> XeroContactsList { get; set; } = new();
 
-        [BindProperty]
-        [Required(ErrorMessage = "Contact ID is mandatory.")]
-        [RegularExpression(@"^[a-fA-F0-9-]{36}$", ErrorMessage = "Contact ID must be a valid 36-character Xero Guid.")]
-        [Display(Name = "Xero Contact ID")]
-        public string ContactId { get; set; } = string.Empty;
+        //[BindProperty]
+        //[Required(ErrorMessage = "Contact ID is mandatory.")]
+        //[RegularExpression(@"^[a-fA-F0-9-]{36}$", ErrorMessage = "Contact ID must be a valid 36-character Xero Guid.")]
+        //[Display(Name = "Xero Contact ID")]
+        //public string ContactId { get; set; } = string.Empty;
 
         [BindProperty]
         public string? ApiResult { get; set; }
@@ -40,19 +45,19 @@ namespace XeroDemo.Pages.Xero
         }
 
         // HANDLER 1: Fetches all connected organizations and populates the dropdown
-        public async Task<IActionResult> OnPostFetchTenantAsync()
+        public async Task<IActionResult> OnPostFetchContactAsync()
         {
-            var connections = await _xeroService.GetTenantConnectionsAsync();
+            var connections = await _xeroContactService.GetContactsAsync();
 
             if (connections != null && connections.Count > 0)
             {
-                XeroTenantsList = connections.ConvertAll(t => new SelectListItem
+                XeroContactsList = connections.ConvertAll(t => new SelectListItem
                 {
-                    Value = t.TenantId,
-                    Text = t.TenantName
+                    Value = t.ContactId.ToString(),
+                    Text = t.Name
                 });
 
-                ApiResult = $"Found {connections.Count} connected organization(s). Please choose one from the list below to build your invoice.";
+                ApiResult = $"Found {connections.Count} connected contact(s). Please choose one from the list below to build your invoice.";
             }
             else
             {
@@ -72,26 +77,29 @@ namespace XeroDemo.Pages.Xero
                 return Page();
             }
 
+            Guid selectedContactIDGUID = Guid.Parse(SelectedContactId);
+
             var sampleInvoice = new InvoiceDto
             {
                 Type = "ACCREC",
-                Contact = new ContactDto { ContactId = this.ContactId },
+                Contact = new XeroContactDto { ContactId = selectedContactIDGUID },                
                 LineItems = new()
                 {
                     new LineItemDto
                     {
-                        Description = "Consulting services",
+                        Description = "Demo Consulting services",
                         Quantity = 10,
                         UnitAmount = 100,
                         AccountCode = "200"
                     }
                 },
-                Date = "2023-10-01",
-                DueDate = "2023-10-15",
+                Date = DateTime.Now.ToString("yyyy-MM-dd"),
+                DueDate = DateTime.Now.AddDays(15).ToString("yyyy-MM-dd"), //"2023-10-15",
                 Status = "AUTHORISED"
             };
 
-            var result = await _xeroService.CreateOrUpdateInvoiceAsync(sampleInvoice, SelectedTenantId);
+
+            var result = await _xeroInvoiceService.CreateOrUpdateInvoiceAsync(sampleInvoice);
             ApiResult = result ?? "Failed to create invoice. Check server logs.";
 
             // Maintain the list state for successive invoice attempts
@@ -102,14 +110,14 @@ namespace XeroDemo.Pages.Xero
         // Helper to reconstruct dropdown items on form errors or re-posts
         private async Task RePopulateDropdownAsync()
         {
-            var connections = await _xeroService.GetTenantConnectionsAsync();
+            var connections = await _xeroContactService.GetContactsAsync();
             if (connections != null)
             {
-                XeroTenantsList = connections.ConvertAll(t => new SelectListItem
+                XeroContactsList = connections.ConvertAll(t => new SelectListItem
                 {
-                    Value = t.TenantId,
-                    Text = t.TenantName,
-                    Selected = (t.TenantId == SelectedTenantId)
+                    Value = t.ContactId.ToString(),
+                    Text = t.Name,
+                    Selected = (t.ContactId.ToString() == SelectedContactId)
                 });
             }
         }
